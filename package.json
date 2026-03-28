@@ -1,0 +1,14 @@
+{
+  "name": "release-note-archive",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "fetch:vscode": "node scripts/fetch_vscode.mjs",
+    "fetch:vs2026": "node scripts/fetch_vs2026.mjs"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "cheerio": "^1.0.0",
+    "turndown": "^7.2.0"
+  }
+}

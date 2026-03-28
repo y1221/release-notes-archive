@@ -1,0 +1,20 @@
+# 依存関係
+node_modules/
+
+# npm のロックファイル以外の生成物
+npm-debug.log*
+
+# 環境変数ファイル
+.env
+.env.local
+
+# OS 生成ファイル
+.DS_Store
+Thumbs.db
+
+# エディタ設定
+.vscode/
+.idea/
+
+# Claude
+.claude

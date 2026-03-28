@@ -1,0 +1,52 @@
+name: リリースノート自動アーカイブ
+
+on:
+  schedule:
+    # 毎日 JST 10:00（UTC 01:00）に実行
+    - cron: '0 1 * * *'
+  workflow_dispatch: # 手動実行も可能
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-release-notes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Node.js セットアップ
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 依存関係のインストール
+        run: npm ci
+
+      - name: VSCode リリースノート取得・翻訳・保存
+        env:
+          DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
+        run: node scripts/fetch_vscode.mjs
+        # VSCode の処理が失敗しても VS 2026 の処理を続行する
+        continue-on-error: true
+
+      - name: VS 2026 リリースノート取得・保存
+        run: node scripts/fetch_vs2026.mjs
+        # VS 2026 の処理が失敗してもコミットステップに進む
+        continue-on-error: true
+
+      - name: 変更をコミット・プッシュ
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "新規リリースなし。コミットをスキップします。"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: リリースノートを自動アーカイブ $(date +'%Y-%m-%d')"
+          git push
