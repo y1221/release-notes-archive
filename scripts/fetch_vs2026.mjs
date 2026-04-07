@@ -60,6 +60,11 @@ function parseLatestVersionSection(html) {
     const text = $(el).text();
     const match = text.match(VERSION_PATTERN);
     if (match && !latestH2) {
+      const versionParts = match[1].split('.');
+      if (versionParts[2] !== '0') {
+        console.log(`スキップ（パッチバージョン）: VS 2026 ${match[1]}`);
+        return; // cheerio の each では return が continue 相当
+      }
       latestH2 = el;
       latestVersion = match[1];
     }
