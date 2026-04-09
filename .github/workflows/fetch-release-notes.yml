@@ -54,6 +54,32 @@ jobs:
           git push
           echo "committed=true" >> $GITHUB_OUTPUT
 
+      - name: 新規アーカイブをメール通知
+        if: steps.commit.outputs.committed == 'true'
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
+          NOTIFY_EMAIL_FROM: ${{ secrets.NOTIFY_EMAIL_FROM }}
+        run: |
+          FILES=$(git show --name-only --format="" HEAD | grep '\.md$')
+          TODAY=$(date +'%Y-%m-%d')
+          BODY=$(printf "以下のリリースノートをアーカイブしました:\n\n%s" "$(echo "$FILES" | sed 's/^/- /')")
+          JSON=$(jq -n \
+            --arg to "$NOTIFY_EMAIL_TO" \
+            --arg from "$NOTIFY_EMAIL_FROM" \
+            --arg subject "[release-notes-archive] 新しいリリースノートをアーカイブしました ($TODAY)" \
+            --arg body "$BODY" \
+            '{
+              personalizations: [{to: [{email: $to}]}],
+              from: {email: $from},
+              subject: $subject,
+              content: [{type: "text/plain", value: $body}]
+            }')
+          curl -s --fail -X POST https://api.sendgrid.com/v3/mail/send \
+            -H "Authorization: Bearer $SENDGRID_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$JSON"
+
       - name: ワークフローサマリーを生成
         if: always()
         run: |
