@@ -40,13 +40,38 @@ jobs:
         continue-on-error: true
 
       - name: 変更をコミット・プッシュ
+        id: commit
         run: |
           git add -A
           if git diff --cached --quiet; then
             echo "新規リリースなし。コミットをスキップします。"
+            echo "committed=false" >> $GITHUB_OUTPUT
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git commit -m "chore: リリースノートを自動アーカイブ $(date +'%Y-%m-%d')"
           git push
+          echo "committed=true" >> $GITHUB_OUTPUT
+
+      - name: ワークフローサマリーを生成
+        if: always()
+        run: |
+          if [[ "${{ steps.commit.outputs.committed }}" == "true" ]]; then
+            echo "## 新しいリリースノートをアーカイブしました" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| ファイル | プロダクト |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------|-----------|" >> $GITHUB_STEP_SUMMARY
+            git show --name-only --format="" HEAD | grep '\.md$' | while IFS= read -r file; do
+              if echo "$file" | grep -q "vscode"; then
+                product="VSCode"
+              elif echo "$file" | grep -q "vs2026"; then
+                product="Visual Studio 2026"
+              else
+                product="-"
+              fi
+              echo "| \`$file\` | $product |" >> $GITHUB_STEP_SUMMARY
+            done
+          else
+            echo "## 新しいリリースノートはありませんでした" >> $GITHUB_STEP_SUMMARY
+          fi
