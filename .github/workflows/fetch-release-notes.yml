@@ -54,31 +54,34 @@ jobs:
           git push
           echo "committed=true" >> $GITHUB_OUTPUT
 
+      - name: メール通知の準備
+        id: prepare_mail
+        if: steps.commit.outputs.committed == 'true'
+        run: |
+          FILES=$(git show --name-only --format="" HEAD | grep '\.md$' | sed 's/^/- /')
+          TODAY=$(date +'%Y-%m-%d')
+          echo "today=$TODAY" >> $GITHUB_OUTPUT
+          {
+            echo "body<<EOF"
+            echo "以下のリリースノートをアーカイブしました:"
+            echo ""
+            echo "$FILES"
+            echo "EOF"
+          } >> $GITHUB_OUTPUT
+
       - name: 新規アーカイブをメール通知
         if: steps.commit.outputs.committed == 'true'
-        env:
-          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
-          NOTIFY_EMAIL_TO: ${{ secrets.NOTIFY_EMAIL_TO }}
-          NOTIFY_EMAIL_FROM: ${{ secrets.NOTIFY_EMAIL_FROM }}
-        run: |
-          FILES=$(git show --name-only --format="" HEAD | grep '\.md$')
-          TODAY=$(date +'%Y-%m-%d')
-          BODY=$(printf "以下のリリースノートをアーカイブしました:\n\n%s" "$(echo "$FILES" | sed 's/^/- /')")
-          JSON=$(jq -n \
-            --arg to "$NOTIFY_EMAIL_TO" \
-            --arg from "$NOTIFY_EMAIL_FROM" \
-            --arg subject "[release-notes-archive] 新しいリリースノートをアーカイブしました ($TODAY)" \
-            --arg body "$BODY" \
-            '{
-              personalizations: [{to: [{email: $to}]}],
-              from: {email: $from},
-              subject: $subject,
-              content: [{type: "text/plain", value: $body}]
-            }')
-          curl -s --fail -X POST https://api.sendgrid.com/v3/mail/send \
-            -H "Authorization: Bearer $SENDGRID_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "$JSON"
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.GMAIL_USERNAME }}
+          password: ${{ secrets.GMAIL_APP_PASSWORD }}
+          from: ${{ secrets.GMAIL_USERNAME }}
+          to: ${{ secrets.NOTIFY_EMAIL_TO }}
+          subject: "[release-notes-archive] 新しいリリースノートをアーカイブしました (${{ steps.prepare_mail.outputs.today }})"
+          body: ${{ steps.prepare_mail.outputs.body }}
 
       - name: ワークフローサマリーを生成
         if: always()
